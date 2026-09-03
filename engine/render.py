@@ -31,9 +31,14 @@ def render_annotated(frames, fps, phases, events, out_path_raw, out_path_final, 
     if events.get("release") is not None:
         event_frame_labels[events["release"]] = "RELEASE!"
 
-    out_frames = []
+    apex = events.get("gather_apex", n // 3)
+    slow_lo, slow_hi = max(0, apex - 5), min(n - 1, apex + 25)
+
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    writer = cv2.VideoWriter(out_path_raw, fourcc, fps, (W, H))
+    seg_w = W / len(phases)
     for i, frame in enumerate(frames):
-        f = frame.copy()
+        f = frame
         name = phase_for(i)
         color = PHASE_COLORS.get(name, (255, 255, 255))
 
@@ -41,7 +46,6 @@ def render_annotated(frames, fps, phases, events, out_path_raw, out_path_final, 
         cv2.putText(f, name, (10, 32), cv2.FONT_HERSHEY_SIMPLEX, 0.8, color, 2, cv2.LINE_AA)
 
         strip_y0 = H - 26
-        seg_w = W / len(phases)
         for idx, (pname, a, b) in enumerate(phases):
             x0 = int(idx * seg_w)
             x1 = int((idx + 1) * seg_w)
@@ -58,15 +62,8 @@ def render_annotated(frames, fps, phases, events, out_path_raw, out_path_final, 
         t = i / fps
         cv2.putText(f, f"t={t:.2f}s f{i}", (W - 165, H - 32), cv2.FONT_HERSHEY_SIMPLEX,
                     0.45, (255, 255, 255), 1, cv2.LINE_AA)
-        out_frames.append(f)
 
-    apex = events.get("gather_apex", n // 3)
-    slow_lo, slow_hi = max(0, apex - 5), min(n - 1, apex + 25)
-
-    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-    writer = cv2.VideoWriter(out_path_raw, fourcc, fps, (W, H))
-    for i, f in enumerate(out_frames):
-        reps = 5 if slow_lo <= i <= slow_hi else 3
+        reps = 4 if slow_lo <= i <= slow_hi else 2
         for _ in range(reps):
             writer.write(f)
     writer.release()
@@ -80,7 +77,6 @@ def render_annotated(frames, fps, phases, events, out_path_raw, out_path_final, 
     ]
     result = subprocess.run(cmd, capture_output=True, text=True)
     if result.returncode != 0 or not os.path.exists(out_path_final):
-        # fall back to no-audio version if source has no/odd audio stream
         cmd2 = ["ffmpeg", "-y", "-i", out_path_raw, "-c:v", "libx264",
                 "-pix_fmt", "yuv420p", "-crf", "20", out_path_final]
         subprocess.run(cmd2, capture_output=True, text=True)
