@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Your delivery &mdash; Run Up</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <div class="wrap">
+    <div class="crest"><span class="bail"></span><span class="name">RUN UP</span></div>
+    <h1 style="font-size:32px;">Delivery breakdown</h1>
+
+    <video src="{{ url_for('media', job_id=job_id, filename='annotated.mp4') }}" controls playsinline></video>
+
+    <div class="overall-badge">
+      <span class="num">{{ overall }}</span>
+      <span class="lbl">/10 overall<br>(provisional average)</span>
+    </div>
+
+    <table>
+      <tbody>
+        {{ rows_html | safe }}
+      </tbody>
+    </table>
+
+    <div class="caveat">
+      <strong>How to read these scores:</strong> this clip was analysed with motion tracking, not full
+      joint tracking, and works best from a side-on camera. Treat this as a first pass, not a final
+      verdict &mdash; scores marked low-confidence in the notes above are areas the camera angle couldn't
+      really show. Film side-on for a much more reliable read.
+    </div>
+
+    <div class="actions" style="margin-top:32px;">
+      <a class="btn btn-amber" href="{{ url_for('index') }}">Analyse another clip</a>
+    </div>
+  </div>
+</body>
+</html>

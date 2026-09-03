@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Run Up &mdash; bowling action analysis</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <div class="wrap">
+    <div class="crest"><span class="bail"></span><span class="name">RUN UP</span></div>
+
+    <h1>See your action the way a coach would.</h1>
+    <p class="lede">Upload a clip of a delivery and get it broken down phase by phase &mdash;
+      gather, contact, release, follow-through &mdash; with a slow-motion breakdown and a score for each.</p>
+
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        {% for m in messages %}<div class="flash">{{ m }}</div>{% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <form method="post" action="{{ url_for('analyze') }}" enctype="multipart/form-data" id="uploadForm">
+      <label class="dropzone" id="dropzone" for="videoInput">
+        <p>Drop a video here, or tap to choose one<br>MP4 or MOV, up to 12 seconds, under 80MB</p>
+        <span class="btn btn-outline">Choose video</span>
+        <div class="filename" id="filenameLabel"></div>
+      </label>
+      <input type="file" name="video" id="videoInput" accept=".mp4,.mov,.m4v">
+      <div class="actions">
+        <button class="btn btn-amber" type="submit" id="submitBtn" disabled>Analyse delivery</button>
+      </div>
+    </form>
+
+    <p class="fine">Best results: full run-up to follow-through in frame, minimal other people moving
+      near the bowler. This is an early prototype using motion tracking rather than full joint
+      tracking, so treat scores as indicative.</p>
+  </div>
+
+  <script>
+    const input = document.getElementById('videoInput');
+    const label = document.getElementById('filenameLabel');
+    const btn = document.getElementById('submitBtn');
+    const zone = document.getElementById('dropzone');
+    const form = document.getElementById('uploadForm');
+
+    input.addEventListener('change', () => {
+      if (input.files.length) {
+        label.textContent = input.files[0].name;
+        btn.disabled = false;
+      }
+    });
+    ['dragenter','dragover'].forEach(evt =>
+      zone.addEventListener(evt, e => { e.preventDefault(); zone.classList.add('drag'); }));
+    ['dragleave','drop'].forEach(evt =>
+      zone.addEventListener(evt, e => { e.preventDefault(); zone.classList.remove('drag'); }));
+    zone.addEventListener('drop', e => {
+      if (e.dataTransfer.files.length) {
+        input.files = e.dataTransfer.files;
+        label.textContent = input.files[0].name;
+        btn.disabled = false;
+      }
+    });
+    form.addEventListener('submit', () => {
+      btn.disabled = true;
+      btn.textContent = 'Analysing \u2014 this can take a minute\u2026';
+    });
+  </script>
+</body>
+</html>
