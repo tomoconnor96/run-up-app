@@ -3,7 +3,8 @@ import uuid
 import traceback
 from flask import Flask, request, render_template, redirect, url_for, send_from_directory, flash
 
-from engine.tracking import read_frames, track_subject, interpolate_track
+from engine.tracking import read_frames
+from engine.pose import extract_landmarks, interpolate_joints, model_available
 from engine.phases import detect_phases, score_phases
 from engine.render import render_annotated
 from engine.report import build_report_html
@@ -15,7 +16,7 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 os.makedirs(RESULT_DIR, exist_ok=True)
 
 ALLOWED_EXT = {"mp4", "mov", "m4v"}
-MAX_CONTENT_LENGTH = 80 * 1024 * 1024  # 80MB
+MAX_CONTENT_LENGTH = 80 * 1024 * 1024
 MAX_DURATION_SECONDS = 12
 
 app = Flask(__name__)
@@ -59,14 +60,18 @@ def analyze():
                   f"run-up through follow-through.")
             return redirect(url_for("index"))
 
-        track = track_subject(frames)
-        cx, cy, top, bottom, area = interpolate_track(track, n)
-        phases, events, signals = detect_phases(cx, cy, top, bottom, area, fps)
-        scores, notes = score_phases(phases, events, signals, cx, cy, top, bottom, area, fps)
+        if not model_available():
+            flash("The pose-tracking model isn't installed on this server yet -- check the Dockerfile build step.")
+            return redirect(url_for("index"))
+
+        track_lms = extract_landmarks(frames, fps)
+        joints = interpolate_joints(track_lms, n)
+        phases, events = detect_phases(joints, fps)
+        scores, notes = score_phases(joints, phases, events, fps)
 
         raw_path = os.path.join(job_dir, "annotated_raw.mp4")
         final_path = os.path.join(job_dir, "annotated.mp4")
-        render_annotated(frames, fps, phases, events, raw_path, final_path, in_path)
+        render_annotated(frames, fps, phases, events, joints, raw_path, final_path, in_path)
 
         rows_html, overall = build_report_html(scores, notes, phases, fps, file.filename)
         with open(os.path.join(job_dir, "meta.html"), "w") as f:
