@@ -1,6 +1,7 @@
 import cv2
 import subprocess
 import os
+from engine.pose import SKELETON_EDGES
 
 PHASE_COLORS = {
     "RUN-UP": (200, 200, 200),
@@ -13,7 +14,7 @@ PHASE_COLORS = {
 }
 
 
-def render_annotated(frames, fps, phases, events, out_path_raw, out_path_final, video_path):
+def render_annotated(frames, fps, phases, events, joints, out_path_raw, out_path_final, video_path):
     H, W = frames[0].shape[:2]
     n = len(frames)
 
@@ -33,6 +34,7 @@ def render_annotated(frames, fps, phases, events, out_path_raw, out_path_final, 
 
     apex = events.get("gather_apex", n // 3)
     slow_lo, slow_hi = max(0, apex - 5), min(n - 1, apex + 25)
+    bow_arm = events.get("bowling_arm", "r")
 
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
     writer = cv2.VideoWriter(out_path_raw, fourcc, fps, (W, H))
@@ -41,6 +43,14 @@ def render_annotated(frames, fps, phases, events, out_path_raw, out_path_final, 
         f = frame
         name = phase_for(i)
         color = PHASE_COLORS.get(name, (255, 255, 255))
+
+        if joints is not None:
+            for a, b in SKELETON_EDGES:
+                ax, ay = joints[a][0][i], joints[a][1][i]
+                bx, by = joints[b][0][i], joints[b][1][i]
+                cv2.line(f, (int(ax), int(ay)), (int(bx), int(by)), (0, 255, 180), 2, cv2.LINE_AA)
+            bow_wrist = joints[f"{bow_arm}_wrist"]
+            cv2.circle(f, (int(bow_wrist[0][i]), int(bow_wrist[1][i])), 6, (0, 0, 255), -1, cv2.LINE_AA)
 
         cv2.rectangle(f, (0, 0), (W, 46), (20, 20, 20), -1)
         cv2.putText(f, name, (10, 32), cv2.FONT_HERSHEY_SIMPLEX, 0.8, color, 2, cv2.LINE_AA)
