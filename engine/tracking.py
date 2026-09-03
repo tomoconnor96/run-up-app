@@ -10,25 +10,38 @@ import cv2
 import numpy as np
 
 
-def read_frames(video_path):
+def read_frames(video_path, max_dim=640):
+    """Read frames, downscaling large videos so processing stays cheap
+    on low-memory hosts (free-tier servers commonly have ~512MB RAM)."""
     cap = cv2.VideoCapture(video_path)
     fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
     frames = []
+    scale = None
     while True:
         ret, frame = cap.read()
         if not ret:
             break
+        if scale is None:
+            h, w = frame.shape[:2]
+            longest = max(h, w)
+            scale = min(1.0, max_dim / longest)
+        if scale < 1.0:
+            frame = cv2.resize(frame, None, fx=scale, fy=scale, interpolation=cv2.INTER_AREA)
         frames.append(frame)
     cap.release()
     return frames, fps
 
 
-def track_subject(frames, min_area=250, max_jump_frac=0.35):
+def track_subject(frames, min_area=None, max_jump_frac=0.35):
     """Returns a list of dicts per frame: {bbox:(x,y,w,h) or None, area}."""
     H, W = frames[0].shape[:2]
     max_jump = max_jump_frac * ((W + H) / 2)
+    if min_area is None:
+        min_area = 0.0015 * W * H  # resolution-independent (frames may be downscaled)
 
-    backSub = cv2.createBackgroundSubtractorMOG2(history=500, varThreshold=40, detectShadows=True)
+    # Downscaled frames are cheap enough to afford two full warm-up passes,
+    # which noticeably improves the background model / tracking quality.
+    backSub = cv2.createBackgroundSubtractorMOG2(history=min(500, 2 * len(frames)), varThreshold=40, detectShadows=True)
     for _ in range(2):
         for f in frames:
             backSub.apply(f, learningRate=0.02)
@@ -69,7 +82,6 @@ def track_subject(frames, min_area=250, max_jump_frac=0.35):
 
     track[seed_idx] = seed_cand
     last = seed_cand
-    # forward from seed
     for i in range(seed_idx + 1, len(frames)):
         best, best_d = None, None
         for c in raw[i]:
@@ -79,7 +91,6 @@ def track_subject(frames, min_area=250, max_jump_frac=0.35):
         if best:
             track[i] = best
             last = best
-    # backward from seed
     last = seed_cand
     for i in range(seed_idx - 1, -1, -1):
         best, best_d = None, None
