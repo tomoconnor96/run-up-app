@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+uploads/*
+results/*
+!uploads/.gitkeep
+!results/.gitkeep
+*.log
+shot_*.png
+headers.txt
+cookies.txt
+response.html
+shot.py
